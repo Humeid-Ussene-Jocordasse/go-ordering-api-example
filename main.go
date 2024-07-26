@@ -20,6 +20,17 @@ func main() {
 
 func basicHandler(w http.ResponseWriter, r *http.Request) {
 
+	// Handle Get
+	if r.URL.Path == "foo" {
+		// handle get foo
+		w.Write([]byte("Foo Logic Implementation"))
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		// Handle POST
+
+	}
+
 	w.Write([]byte("Hello, World!"))
-	return
 }
