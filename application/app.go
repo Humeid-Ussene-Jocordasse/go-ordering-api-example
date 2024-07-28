@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"net/http"
+	"time"
 )
 
 type App struct {
@@ -33,23 +34,36 @@ func (a *App) Start(ctx context.Context) error {
 		return fmt.Errorf("could connect to redis instance %w", err)
 	}
 
+	defer func() {
+		if err := a.rdb.Close(); err != nil {
+			fmt.Println("failed to close redis", err)
+		}
+	}()
+
 	fmt.Println("Starting application")
 
 	ch := make(chan error, 1)
-	//go func() {
-	//	err = server.ListenAndServe()
-	//	if err != nil {
-	//		return fmt.Errorf("failed to start server: %w", err)
-	//	}
-	//}()
-	err = <-ch
-	go startServer(server.ListenAndServe(), ch)
-	if err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-	return err
-}
 
-func startServer(err error, ch chan error) {
-	ch <- fmt.Errorf("failed to start server: %w", err)
+	// Initiating a Go routine
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil {
+			ch <- fmt.Errorf("failed to start server: %w", err)
+		}
+		// Closing the channel so that every listeners stop listing from it
+		close(ch)
+
+	}()
+	// retuning the channel value, and checking if it is opened
+	ctx.Done()
+
+	// It's a Switch case functionality, but for channels
+	select {
+	case err = <-ch:
+		return err
+	case <-ctx.Done():
+		timeout, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+		return server.Shutdown(timeout)
+	}
 }
